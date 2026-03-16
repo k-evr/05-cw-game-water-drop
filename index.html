@@ -1,25 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Drop Game</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Water Drop Collector · charity: water</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="game-wrapper">
-        <h1 class="game-title">Water Drop</h1>
-        <p class="game-tagline">Catch the good drops, avoid the bad ones!</p>
-        <div class="score-panel">
-            <div class="score">Score: <span id="score">0</span></div>
-            <div class="timer">Time: <span id="time">30</span>s</div>
-            <button id="start-btn">Start Game</button>
-        </div>
-        
-        <div id="game-container">
-        </div>
+
+  <!-- Confetti canvas (full-page, drawn by JS) -->
+  <canvas id="confettiCanvas"></canvas>
+
+  <!-- ═══════════════════════════════════════════════
+       DESKTOP LAYOUT  (≥ 701 px)
+  ═══════════════════════════════════════════════ -->
+  <div class="layout desktop" id="desktopLayout">
+
+    <!-- Row 1: logo + high score -->
+    <div class="d-header card">
+      <div class="logo-group">
+        <span class="logo-drop">💧</span>
+        <span class="logo-text">Water Drop Collector</span>
+      </div>
+      <div class="hs-group">
+        <span class="hs-label">🏆 High Score</span>
+        <span class="hs-value" id="d-highscore">0</span>
+      </div>
     </div>
-    
-    <script src="script.js"></script>
+
+    <!-- Row 2: score + lives -->
+    <div class="d-subheader card">
+      <div class="pill">
+        <span class="pill-lbl">🏆 Score</span>
+        <span class="pill-val" id="d-score">0</span>
+      </div>
+      <div class="pill">
+        <span class="pill-lbl">❤️ Lives</span>
+        <span class="pill-val hearts" id="d-lives">❤️❤️❤️</span>
+      </div>
+    </div>
+
+    <!-- Row 3: game area + sidebar -->
+    <div class="d-main">
+
+      <!-- Game area -->
+      <div class="game-area" id="d-area">
+        <span class="area-tag">GAME AREA</span>
+        <div class="overlay active" id="d-overlay">
+          <div class="ov-box">
+            <div class="ov-icon">💧</div>
+            <div class="ov-title">Water Drop Collector</div>
+            <div class="ov-sub">
+              Click water drops to score points.<br>
+              Miss a drop <em>or</em> click a pollutant → lose a life.<br>
+              Lose all 3 lives → Game Over.
+            </div>
+            <button class="ov-btn" onclick="Game.start('d')">▶&nbsp;Start Game</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="d-sidebar">
+
+        <div class="card s-card">
+          <p class="card-head">LEGEND</p>
+          <div class="leg-row">
+            <span class="leg-icon water-ic">💧</span>
+            <div>
+              <div class="leg-name">Water</div>
+              <div class="leg-pts pos">+10</div>
+            </div>
+          </div>
+          <div class="leg-row">
+            <span class="leg-icon poll-ic">☠️</span>
+            <div>
+              <div class="leg-name">Pollutant</div>
+              <div class="leg-pts neg">−15, −1 ❤️</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card s-card">
+          <p class="card-head">STATISTICS</p>
+          <div class="s-row">
+            <span class="s-lbl">Collected:</span>
+            <span class="s-val pos-chip" id="d-collected">0</span>
+          </div>
+          <div class="s-row">
+            <span class="s-lbl">Missed:</span>
+            <span class="s-val neg-chip" id="d-missed">0</span>
+          </div>
+          <div class="s-row">
+            <span class="s-lbl">Speed:</span>
+            <span class="s-val" id="d-speed">1.0×</span>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+    <!-- Row 4: feedback + reset -->
+    <div class="d-bottom">
+      <div class="feedback-pill" id="d-feedback">&nbsp;</div>
+      <div class="d-btns">
+        <button class="btn-reset btn-reset-full" onclick="Game.reset('d')">↺&nbsp;Reset</button>
+      </div>
+    </div>
+
+  </div><!-- /desktop -->
+
+
+  <!-- ═══════════════════════════════════════════════
+       MOBILE LAYOUT  (≤ 700 px)
+  ═══════════════════════════════════════════════ -->
+  <div class="layout mobile" id="mobileLayout">
+
+    <!-- Title bar -->
+    <div class="m-titlebar">
+      <span class="logo-drop">💧</span>
+      <span class="logo-text">Water Drop Collector</span>
+    </div>
+
+    <!-- Score / Lives / High Score -->
+    <div class="m-stats card">
+      <div class="m-top-row">
+        <div class="m-stat">
+          <div class="ms-lbl">🏆 Score</div>
+          <div class="ms-val" id="m-score">0</div>
+        </div>
+        <div class="m-stat text-right">
+          <div class="ms-lbl">❤️ Lives</div>
+          <div class="ms-val" id="m-lives">3</div>
+        </div>
+      </div>
+      <div class="m-hs-row">🏆 High:&nbsp;<strong id="m-highscore">0</strong></div>
+    </div>
+
+    <!-- Game area -->
+    <div class="game-area m-area" id="m-area">
+      <span class="area-tag">GAME AREA</span>
+      <div class="overlay active" id="m-overlay">
+        <div class="ov-box">
+          <div class="ov-icon">💧</div>
+          <div class="ov-title">Water Drop Collector</div>
+          <div class="ov-sub">Tap water drops to score.<br>Miss or tap a pollutant → lose a life.</div>
+          <button class="ov-btn" onclick="Game.start('m')">▶&nbsp;Start Game</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback bar -->
+    <div class="m-feedback hidden" id="m-feedback">Great catch! +10</div>
+
+    <!-- Reset button -->
+    <div class="m-controls">
+      <button class="btn-reset grow" onclick="Game.reset('m')">↺&nbsp;Reset</button>
+    </div>
+
+    <!-- Legend + Stats -->
+    <div class="m-cards">
+      <div class="card m-half">
+        <p class="card-head">LEGEND</p>
+        <div class="leg-row sm">
+          <span class="leg-icon water-ic sm">💧</span>
+          <span class="leg-pts pos">+10</span>
+        </div>
+        <div class="leg-row sm">
+          <span class="leg-icon poll-ic sm">☠️</span>
+          <span class="leg-pts neg">−15</span>
+        </div>
+      </div>
+      <div class="card m-half">
+        <p class="card-head">STATS</p>
+        <div class="s-row sm">
+          <span class="s-lbl">Collected</span>
+          <span class="s-val pos-chip" id="m-collected">0</span>
+        </div>
+        <div class="s-row sm">
+          <span class="s-lbl">Missed</span>
+          <span class="s-val neg-chip" id="m-missed">0</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /mobile -->
+
+  <script src="game.js"></script>
 </body>
 </html>
