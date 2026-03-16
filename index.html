@@ -7,7 +7,271 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="style.css" />
+  <style>
+/* ================================================================
+   WATER DROP COLLECTOR — style.css (inlined)
+   Brand palette: charity: water
+   #FFC907 yellow | #2E9DF7 blue | #8BC34A green | #E91C23 red
+================================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+button { font-family: inherit; cursor: pointer; border: none; outline: none; }
+
+:root {
+  --yellow:    #FFC907;
+  --yellow-dk: #e6b400;
+  --blue:      #2E9DF7;
+  --blue-lt:   #4FC3F7;
+  --green:     #8BC34A;
+  --green-dk:  #558B2F;
+  --red:       #E91C23;
+  --card-bg:   rgba(255,255,255,0.93);
+  --card-sh:   0 3px 16px rgba(46,157,247,0.13);
+  --text:      #1A2E3B;
+  --muted:     #607D8B;
+  --r:         16px;
+  --mono:      'Space Mono', monospace;
+  --sans:      'Nunito', sans-serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: linear-gradient(145deg, #D6F0FF 0%, #8DCFF0 55%, #5BB8E8 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* ── Confetti canvas ── */
+#confettiCanvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Layout visibility ── */
+.layout        { display: none; }
+.layout.desktop{ display: flex; }
+@media (max-width: 700px) {
+  .layout.desktop { display: none; }
+  .layout.mobile  { display: flex;  }
+}
+
+/* ── Shared card ── */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--r);
+  box-shadow: var(--card-sh);
+  backdrop-filter: blur(8px);
+}
+.card-head {
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 1.8px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+
+/* ── Logo ── */
+.logo-group { display: flex; align-items: center; gap: 8px; }
+.logo-drop  { font-size: 24px; }
+.logo-text  { font-size: 18px; font-weight: 900; color: var(--blue); letter-spacing: -.3px; }
+
+/* ── High score ── */
+.hs-group   { text-align: right; }
+.hs-label   { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.hs-value   { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--yellow-dk); }
+
+/* ── Pill (score / lives on desktop sub-header) ── */
+.pill     { display: flex; flex-direction: column; gap: 1px; }
+.pill-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.pill-val { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.pill-val.hearts { font-size: 18px; letter-spacing: 3px; }
+
+/* ── Legend ── */
+.leg-row             { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.leg-row:last-child  { margin-bottom: 0; }
+.leg-row.sm          { margin-bottom: 8px; }
+.leg-icon            { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.leg-icon.sm         { width: 30px; height: 30px; font-size: 14px; }
+.water-ic            { background: radial-gradient(circle at 38% 36%, #b3e5fc, #2E9DF7); border: 2px solid rgba(255,255,255,.55); }
+.poll-ic             { background: radial-gradient(circle at 38% 36%, #c5e1a5, #558B2F); border: 2px solid rgba(255,255,255,.4); }
+.leg-name            { font-size: 13px; font-weight: 700; color: var(--text); }
+.leg-pts             { font-size: 12px; font-weight: 800; }
+.leg-pts.pos         { color: var(--green-dk); }
+.leg-pts.neg         { color: var(--red); }
+
+/* ── Stat rows ── */
+.s-row             { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,.05); }
+.s-row:last-child  { border-bottom: none; }
+.s-row.sm .s-lbl   { font-size: 12px; }
+.s-lbl             { font-size: 13px; font-weight: 600; color: var(--muted); }
+.s-val             { font-family: var(--mono); font-weight: 700; font-size: 15px; color: var(--text); padding: 2px 8px; border-radius: 6px; min-width: 36px; text-align: center; }
+.pos-chip          { background: #E8F5E9; color: var(--green-dk); }
+.neg-chip          { background: #FFEBEE; color: var(--red); }
+
+/* ── Game area ── */
+.game-area {
+  position: relative;
+  background: linear-gradient(180deg, #CCE9FB 0%, #A8D9F5 100%);
+  border: 2.5px dashed #7BB8D4;
+  border-radius: var(--r);
+  overflow: hidden;
+  cursor: crosshair;
+  -webkit-user-select: none; user-select: none;
+}
+.area-tag {
+  position: absolute; top: 10px; left: 13px;
+  font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(46,100,160,.35); pointer-events: none; z-index: 2;
+}
+
+/* ── Falling drops ── */
+.drop {
+  position: absolute;
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; cursor: pointer; pointer-events: auto;
+  transition: transform 0.08s; z-index: 5; will-change: top;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.18));
+}
+.drop.water     { background: radial-gradient(circle at 38% 36%, #b3e5fc, #2E9DF7); border: 2.5px solid rgba(255,255,255,.6); }
+.drop.pollutant { background: radial-gradient(circle at 38% 36%, #c5e1a5, #4CAF50); border: 2.5px solid rgba(255,255,255,.4); }
+.drop:hover  { transform: scale(1.12); }
+.drop:active { transform: scale(0.92); }
+
+/* ── Score pop ── */
+.score-pop {
+  position: absolute; font-family: var(--mono); font-size: 15px; font-weight: 700;
+  pointer-events: none; z-index: 10;
+  animation: popFly 0.7s ease-out forwards;
+}
+.score-pop.pos { color: var(--green-dk); }
+.score-pop.neg { color: var(--red); }
+@keyframes popFly {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-48px) scale(1.3); }
+}
+
+/* ── Overlay ── */
+.overlay {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,.82); backdrop-filter: blur(7px);
+  display: none; align-items: center; justify-content: center;
+  border-radius: calc(var(--r) - 2px); z-index: 20;
+}
+.overlay.active { display: flex; }
+.ov-box   { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; text-align: center; }
+.ov-icon  { font-size: 44px; }
+.ov-title { font-size: 22px; font-weight: 900; color: var(--blue); }
+.ov-sub   { font-size: 13px; color: var(--muted); line-height: 1.55; max-width: 260px; }
+.ov-btn   {
+  margin-top: 6px; background: linear-gradient(135deg, var(--blue), var(--blue-lt));
+  color: #fff; font-weight: 800; font-size: 15px; padding: 11px 30px; border-radius: 30px;
+  box-shadow: 0 4px 16px rgba(46,157,247,.38); transition: transform .12s, box-shadow .12s;
+}
+.ov-btn:hover  { transform: translateY(-2px); box-shadow: 0 7px 22px rgba(46,157,247,.45); }
+.ov-btn:active { transform: translateY(0); }
+
+/* ── Desktop feedback pill ── */
+.feedback-pill {
+  flex: 1; padding: 11px 22px; border-radius: 30px;
+  font-weight: 800; font-size: 15px; color: #fff; background: var(--green);
+  min-height: 44px; display: flex; align-items: center;
+  transition: background .2s, opacity .2s; opacity: 0;
+}
+.feedback-pill.show     { opacity: 1; }
+.feedback-pill.show.bad { background: var(--red); }
+
+/* ── Buttons ── */
+.btn-start {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--blue-lt) 100%);
+  color: #fff; font-weight: 800; font-size: 15px; padding: 11px 28px; border-radius: 30px;
+  box-shadow: 0 4px 14px rgba(46,157,247,.33); transition: transform .12s, box-shadow .12s;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-start:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,157,247,.42); }
+.btn-start:active { transform: translateY(0); }
+.btn-start.grow   { flex: 1; justify-content: center; }
+.btn-reset {
+  background: var(--card-bg); color: var(--muted); font-size: 20px; font-weight: 700;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--card-sh); transition: background .12s;
+}
+.btn-reset:hover { background: #e0e0e0; }
+.btn-reset.btn-reset-full { width: auto; border-radius: 30px; padding: 11px 28px; font-size: 15px; }
+.btn-reset.grow { flex: 1; justify-content: center; border-radius: 30px; width: auto; font-size: 15px; padding: 11px 0; }
+
+/* ── Hit flash animations ── */
+@keyframes flashRed {
+  0%,100% { border-color: #7BB8D4; }
+  30%     { border-color: var(--red);   box-shadow: inset 0 0 0 3px rgba(233,28,35,.35); }
+}
+@keyframes flashGreen {
+  0%,100% { border-color: #7BB8D4; }
+  30%     { border-color: var(--green); box-shadow: inset 0 0 0 3px rgba(139,195,74,.35); }
+}
+.game-area.flash-bad  { animation: flashRed   0.35s ease; }
+.game-area.flash-good { animation: flashGreen 0.35s ease; }
+
+/* ==============================================================
+   DESKTOP LAYOUT
+============================================================== */
+.layout.desktop {
+  flex-direction: column; gap: 12px;
+  width: 100%; max-width: 900px;
+}
+.d-header    { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; }
+.d-subheader { display: flex; gap: 28px; padding: 12px 22px; }
+.d-main      { display: grid; grid-template-columns: 1fr 220px; gap: 12px; align-items: start; }
+.d-main .game-area { height: 380px; }
+.d-sidebar   { display: flex; flex-direction: column; gap: 12px; }
+.s-card      { padding: 16px; }
+.d-bottom    { display: flex; align-items: center; gap: 10px; }
+.d-btns      { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* ==============================================================
+   MOBILE LAYOUT
+============================================================== */
+.layout.mobile {
+  flex-direction: column; gap: 10px;
+  width: 100%; max-width: 400px; padding: 4px 0;
+}
+.m-titlebar           { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 2px 0 4px; }
+.m-titlebar .logo-text{ font-size: 17px; }
+.m-stats              { padding: 14px 16px 10px; }
+.m-top-row            { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.m-stat               { display: flex; flex-direction: column; gap: 1px; }
+.m-stat.text-right    { text-align: right; }
+.ms-lbl               { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.ms-val               { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--text); }
+.m-hs-row             { text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); border-top: 1px solid rgba(0,0,0,.07); padding-top: 8px; }
+.m-hs-row strong      { font-family: var(--mono); color: var(--yellow-dk); font-size: 15px; }
+.m-area               { height: 260px; }
+.m-feedback {
+  width: 100%; padding: 11px 22px; border-radius: 10px;
+  font-weight: 800; font-size: 15px; color: #fff;
+  background: var(--green); text-align: center;
+  transition: background .2s, opacity .3s;
+}
+.m-feedback.hidden  { opacity: 0; pointer-events: none; }
+.m-feedback.bad     { background: var(--red); }
+.m-controls { display: flex; gap: 8px; align-items: center; }
+.m-cards    { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-half     { padding: 14px; }
+
+/* Responsive tweaks */
+@media (max-width: 960px) {
+  .layout.desktop { max-width: 98vw; }
+  .d-main .game-area { height: 320px; }
+}
+@media (max-width: 480px) {
+  .m-area   { height: 220px; }
+  .drop     { width: 42px; height: 42px; font-size: 18px; }
+  .ov-title { font-size: 18px; }
+}
+  </style>
 </head>
 <body>
 
@@ -149,6 +413,382 @@
   </div><!-- /mobile -->
 
 
-  <script src="game.js"></script>
+  <script>
+/* ================================================================
+   WATER DROP COLLECTOR — game.js (inlined)
+
+   RULES:
+   • Water drops (blue 💧) fall from the top.
+   • Click/tap water drop  → +10 pts, collected++
+   • Miss a water drop     → lives−−
+   • Click/tap pollutant   → score−15, lives−−
+   • Lives reach 0         → Game Over (no timer)
+   • Beat high score       → confetti!
+   • Speed ramps every 5 collected drops.
+================================================================ */
+
+const Game = (() => {
+
+  /* ── Constants ── */
+  const MAX_LIVES       = 3;
+  const WATER_PTS       = 10;
+  const POLL_PTS        = 15;
+  const WATER_CHANCE    = 0.72;
+  const BASE_FALL_MS    = 3000;
+  const BASE_SPAWN_MS   = 1200;
+  const SPEED_STEP      = 5;
+  const SPEED_INC       = 0.15;
+  const MAX_SPEED       = 2.8;
+  const DROP_PX         = 48;
+  const LS_KEY          = 'wdc_hs';
+
+  /* ── State ── */
+  let S = freshState();
+
+  function freshState() {
+    return {
+      score:     0,
+      lives:     MAX_LIVES,
+      collected: 0,
+      missed:    0,
+      speed:     1.0,
+      running:   false,
+      hs:        Number(localStorage.getItem(LS_KEY) || 0),
+      drops:     [],
+      spawnTid:  null,
+      rafId:     null,
+      prefix:    'd',
+      ended:     false,
+    };
+  }
+
+  /* ── DOM shortcuts ── */
+  const $  = id => document.getElementById(id);
+  const ga = p  => $(`${p}-area`);
+
+  /* ── Sync all display elements ── */
+  function syncUI() {
+    ['d','m'].forEach(p => {
+      const sc = $(`${p}-score`);      if (sc) sc.textContent = S.score.toLocaleString();
+      const hs = $(`${p}-highscore`);  if (hs) hs.textContent = S.hs.toLocaleString();
+      const co = $(`${p}-collected`);  if (co) co.textContent = S.collected;
+      const mi = $(`${p}-missed`);     if (mi) mi.textContent = S.missed;
+      const sp = $(`${p}-speed`);      if (sp) sp.textContent = S.speed.toFixed(1) + '×';
+      const lv = $(`${p}-lives`);
+      if (lv) lv.textContent = (p === 'd') ? '❤️'.repeat(Math.max(0, S.lives)) : String(Math.max(0, S.lives));
+    });
+  }
+
+  /* ── Feedback messages ── */
+  let fbTid = null;
+  function feedback(msg, bad) {
+    clearTimeout(fbTid);
+    const p = S.prefix;
+    if (p === 'd') {
+      const el = $('d-feedback');
+      el.textContent = msg;
+      el.className = 'feedback-pill show' + (bad ? ' bad' : '');
+      fbTid = setTimeout(() => { el.className = 'feedback-pill'; }, 950);
+    } else {
+      const el = $('m-feedback');
+      el.textContent = msg;
+      el.className = 'm-feedback' + (bad ? ' bad' : '');
+      fbTid = setTimeout(() => { el.className = 'm-feedback hidden'; }, 950);
+    }
+  }
+
+  /* ── Floating score pop ── */
+  function scorePop(areaEl, x, y, txt, pos) {
+    const d = document.createElement('div');
+    d.className = 'score-pop ' + (pos ? 'pos' : 'neg');
+    d.textContent = txt;
+    d.style.left = (x - 14) + 'px';
+    d.style.top  = (y - 12) + 'px';
+    areaEl.appendChild(d);
+    setTimeout(() => d.remove(), 720);
+  }
+
+  /* ── Border flash ── */
+  function flash(good) {
+    const a = ga(S.prefix);
+    if (!a) return;
+    const cls = good ? 'flash-good' : 'flash-bad';
+    a.classList.remove('flash-good','flash-bad');
+    void a.offsetWidth;
+    a.classList.add(cls);
+    setTimeout(() => a.classList.remove(cls), 380);
+  }
+
+  /* ── Spawn one drop ── */
+  function spawnDrop() {
+    if (!S.running) return;
+    const a     = ga(S.prefix);
+    if (!a) return;
+    const W     = a.clientWidth;
+    const H     = a.clientHeight;
+    const water = Math.random() < WATER_CHANCE;
+    const dur   = BASE_FALL_MS / S.speed + (Math.random() * 400 - 200);
+    const x     = Math.max(4, Math.random() * (W - DROP_PX - 4));
+
+    const el = document.createElement('div');
+    el.className   = 'drop ' + (water ? 'water' : 'pollutant');
+    el.textContent = water ? '💧' : '☠️';
+    el.style.left  = x + 'px';
+    el.style.top   = (-DROP_PX) + 'px';
+
+    // Use let so the closure captures the correct dropObj reference
+    let dropObj;
+    el.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      onDropClick(dropObj, el, a);
+    });
+
+    a.appendChild(el);
+
+    dropObj = {
+      el, x,
+      startTime: performance.now(),
+      duration:  dur,
+      areaH:     H,
+      isWater:   water,
+      done:      false,
+    };
+
+    S.drops.push(dropObj);
+  }
+
+  /* ── Handle drop click/tap ── */
+  function onDropClick(obj, el, areaEl) {
+    if (!obj || obj.done || !S.running) return;
+    obj.done = true;
+
+    const rect = el.getBoundingClientRect();
+    const ar   = areaEl.getBoundingClientRect();
+    const px   = rect.left - ar.left + DROP_PX / 2;
+    const py   = rect.top  - ar.top;
+
+    el.remove();
+
+    if (obj.isWater) {
+      S.score     += WATER_PTS;
+      S.collected += 1;
+      feedback('Great catch! +10', false);
+      scorePop(areaEl, px, py, '+10', true);
+      flash(true);
+      updateSpeed();
+    } else {
+      S.score  = Math.max(0, S.score - POLL_PTS);
+      S.lives -= 1;
+      feedback('Pollutant! −15 pts, −1 ❤️', true);
+      scorePop(areaEl, px, py, '−15', false);
+      flash(false);
+    }
+    syncUI();
+    if (S.lives <= 0) endGame();
+  }
+
+  /* ── rAF loop: move drops, detect misses ── */
+  function tick(now) {
+    if (!S.running) return;
+
+    S.drops = S.drops.filter(d => {
+      if (d.done) return false;
+      const a = ga(S.prefix);
+      if (!a) return false;
+
+      const progress = (now - d.startTime) / d.duration;
+      const newTop   = -DROP_PX + (d.areaH + DROP_PX * 2) * progress;
+
+      if (newTop > d.areaH) {
+        d.done = true;
+        d.el.remove();
+        if (d.isWater) {
+          S.missed += 1;
+          S.lives  -= 1;
+          feedback('Missed! −1 ❤️', true);
+          flash(false);
+          syncUI();
+          if (S.lives <= 0) { endGame(); return false; }
+        }
+        return false;
+      }
+
+      d.el.style.top = newTop + 'px';
+      return true;
+    });
+
+    S.rafId = requestAnimationFrame(tick);
+  }
+
+  /* ── Speed ramp ── */
+  function updateSpeed() {
+    S.speed = Math.min(MAX_SPEED, 1.0 + Math.floor(S.collected / SPEED_STEP) * SPEED_INC);
+  }
+
+  /* ── Spawn scheduler ── */
+  function scheduleSpawn() {
+    if (!S.running) return;
+    const delay = BASE_SPAWN_MS / S.speed * (0.75 + Math.random() * 0.5);
+    S.spawnTid = setTimeout(() => {
+      if (!S.running) return;
+      spawnDrop();
+      scheduleSpawn();
+    }, delay);
+  }
+
+  /* ── Wipe all drops from DOM ── */
+  function clearDrops() {
+    ['d','m'].forEach(p => {
+      const a = ga(p);
+      if (a) a.querySelectorAll('.drop,.score-pop').forEach(n => n.remove());
+    });
+    S.drops = [];
+  }
+
+  /* ── Build overlay HTML ── */
+  function showOverlay(p, title, sub, btnLabel, action) {
+    const ov = $(`${p}-overlay`);
+    if (!ov) return;
+    ov.innerHTML = `
+      <div class="ov-box">
+        <div class="ov-icon">💧</div>
+        <div class="ov-title">${title}</div>
+        <div class="ov-sub">${sub}</div>
+        <button class="ov-btn" onclick="${action}">▶&nbsp;${btnLabel}</button>
+      </div>`;
+    ov.classList.add('active');
+  }
+
+  /* ── End game (called once via ended guard) ── */
+  function endGame() {
+    if (S.ended) return;
+    S.ended   = true;
+    S.running = false;
+    clearTimeout(S.spawnTid);
+    cancelAnimationFrame(S.rafId);
+    clearTimeout(fbTid);
+    clearDrops();
+
+    // Update high score at end, fire confetti only if beaten
+    const beatHigh = S.score > S.hs;
+    if (beatHigh) {
+      S.hs = S.score;
+      localStorage.setItem(LS_KEY, S.hs);
+    }
+    syncUI();
+
+    if (beatHigh) launchConfetti();
+
+    const sub = `Final Score: <strong>${S.score.toLocaleString()}</strong><br>
+                 Collected: ${S.collected} &nbsp;|&nbsp; Missed: ${S.missed}`;
+    ['d','m'].forEach(p => showOverlay(p, beatHigh ? '🏆 New High Score!' : '💀 Game Over!', sub, 'Play Again', `Game.start('${p}')`));
+  }
+
+  /* ─────────────────────────────────────
+     PUBLIC API
+  ───────────────────────────────────── */
+  function start(prefix) {
+    // Tear down any running game first
+    if (S.running) {
+      clearTimeout(S.spawnTid);
+      cancelAnimationFrame(S.rafId);
+      clearTimeout(fbTid);
+      clearDrops();
+    }
+
+    S = {
+      ...freshState(),
+      hs:     S.hs,   // keep high score across rounds
+      prefix: prefix,
+      running: true,
+    };
+
+    // Hide overlays
+    ['d','m'].forEach(p => { const ov = $(`${p}-overlay`); if (ov) ov.classList.remove('active'); });
+
+    // Clear feedback
+    $('d-feedback') && ($('d-feedback').className = 'feedback-pill');
+    $('m-feedback') && ($('m-feedback').className = 'm-feedback hidden');
+
+    syncUI();
+    scheduleSpawn();
+    S.rafId = requestAnimationFrame(tick);
+  }
+
+  function reset(prefix) {
+    clearTimeout(S.spawnTid);
+    cancelAnimationFrame(S.rafId);
+    clearTimeout(fbTid);
+    clearDrops();
+
+    S = { ...freshState(), hs: S.hs, prefix };
+
+    $('d-feedback') && ($('d-feedback').className = 'feedback-pill');
+    $('m-feedback') && ($('m-feedback').className = 'm-feedback hidden');
+
+    syncUI();
+    ['d','m'].forEach(p => showOverlay(
+      p,
+      'Water Drop Collector',
+      'Click water drops to score.<br>Miss one or click a pollutant → lose a life.<br>Lose all 3 lives → Game Over.',
+      'Start Game',
+      `Game.start('${p}')`
+    ));
+  }
+
+  return { start, reset };
+})();
+
+
+/* ================================================================
+   CONFETTI ENGINE
+   Fires on new high score. Uses charity: water brand colours.
+================================================================ */
+(function () {
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx    = canvas.getContext('2d');
+  const COLORS = ['#FFC907','#2E9DF7','#8BC34A','#4FC3F7','#E91C23','#FFFFFF'];
+
+  let particles = [];
+  let raf       = null;
+
+  function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function Particle() {
+    this.x     = Math.random() * canvas.width;
+    this.y     = -12;
+    this.r     = 5 + Math.random() * 7;
+    this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    this.vx    = (Math.random() - 0.5) * 4;
+    this.vy    = 2.5 + Math.random() * 3.5;
+    this.spin  = (Math.random() - 0.5) * 0.28;
+    this.angle = Math.random() * Math.PI * 2;
+    this.rect  = Math.random() < 0.5;
+  }
+
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.07; p.angle += p.spin;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      if (p.rect) { ctx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r); }
+      else { ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill(); }
+      ctx.restore();
+    });
+    particles = particles.filter(p => p.y < canvas.height + 24);
+    raf = particles.length ? requestAnimationFrame(loop) : (ctx.clearRect(0,0,canvas.width,canvas.height), null);
+  }
+
+  window.launchConfetti = function () {
+    for (let i = 0; i < 180; i++) particles.push(new Particle());
+    if (!raf) raf = requestAnimationFrame(loop);
+  };
+})();
+  </script>
 </body>
 </html>
