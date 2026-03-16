@@ -2,31 +2,31 @@
    WATER DROP COLLECTOR — game.js
 
    RULES:
-   • Water drops (blue 💧) fall from the top at random positions.
-   • Click / tap a water drop   → +10 pts, collected++
-   • Miss a water drop          → lives--
-   • Click / tap a pollutant    → score −15, lives--
-   • Lives reach 0              → Game Over (no timer)
-   • Final score beats high score → confetti fires at game end
-   • Speed ramps up every 5 collected drops
+   • Water drops (blue 💧) fall from the top.
+   • Click/tap water drop  → +10 pts, collected++
+   • Miss a water drop     → lives−−
+   • Click/tap pollutant   → score−15, lives−−
+   • Lives reach 0         → Game Over (no timer)
+   • Beat high score       → confetti!
+   • Speed ramps every 5 collected drops.
 ================================================================ */
 
 const Game = (() => {
 
-  /* ── Constants ─────────────────────────────────────────── */
-  const MAX_LIVES     = 3;
-  const WATER_PTS     = 10;
-  const POLL_PTS      = 15;
-  const WATER_CHANCE  = 0.72;   // 72% water, 28% pollutant
-  const BASE_FALL_MS  = 3000;   // drop fall duration at 1× speed
-  const BASE_SPAWN_MS = 1200;   // ms between spawns at 1× speed
-  const SPEED_STEP    = 5;      // collected drops per speed level
-  const SPEED_INC     = 0.15;   // speed added per level
-  const MAX_SPEED     = 2.8;
-  const DROP_PX       = 48;     // drop diameter in px — must match CSS
-  const LS_KEY        = 'wdc_hs';
+  /* ── Constants ── */
+  const MAX_LIVES       = 3;
+  const WATER_PTS       = 10;
+  const POLL_PTS        = 15;
+  const WATER_CHANCE    = 0.72;
+  const BASE_FALL_MS    = 3000;
+  const BASE_SPAWN_MS   = 1200;
+  const SPEED_STEP      = 5;
+  const SPEED_INC       = 0.15;
+  const MAX_SPEED       = 2.8;
+  const DROP_PX         = 48;
+  const LS_KEY          = 'wdc_hs';
 
-  /* ── State ─────────────────────────────────────────────── */
+  /* ── State ── */
   let S = freshState();
 
   function freshState() {
@@ -38,36 +38,33 @@ const Game = (() => {
       speed:     1.0,
       running:   false,
       hs:        Number(localStorage.getItem(LS_KEY) || 0),
-      drops:     [],       // active drop objects
-      spawnTid:  null,     // spawn setTimeout handle
-      rafId:     null,     // requestAnimationFrame handle
-      prefix:    'd',      // active layout prefix: 'd' or 'm'
-      ended:     false,    // guard against double endGame calls
+      drops:     [],
+      spawnTid:  null,
+      rafId:     null,
+      prefix:    'd',
+      ended:     false,
     };
   }
 
-  /* ── DOM shortcuts ─────────────────────────────────────── */
+  /* ── DOM shortcuts ── */
   const $  = id => document.getElementById(id);
   const ga = p  => $(`${p}-area`);
 
-  /* ── Sync every display element ───────────────────────── */
+  /* ── Sync all display elements ── */
   function syncUI() {
-    ['d', 'm'].forEach(p => {
-      const sc = $(`${p}-score`);     if (sc) sc.textContent = S.score.toLocaleString();
-      const hs = $(`${p}-highscore`); if (hs) hs.textContent = S.hs.toLocaleString();
-      const co = $(`${p}-collected`); if (co) co.textContent = S.collected;
-      const mi = $(`${p}-missed`);    if (mi) mi.textContent = S.missed;
-      const sp = $(`${p}-speed`);     if (sp) sp.textContent = S.speed.toFixed(1) + '×';
+    ['d','m'].forEach(p => {
+      const sc = $(`${p}-score`);      if (sc) sc.textContent = S.score.toLocaleString();
+      const hs = $(`${p}-highscore`);  if (hs) hs.textContent = S.hs.toLocaleString();
+      const co = $(`${p}-collected`);  if (co) co.textContent = S.collected;
+      const mi = $(`${p}-missed`);     if (mi) mi.textContent = S.missed;
+      const sp = $(`${p}-speed`);      if (sp) sp.textContent = S.speed.toFixed(1) + '×';
       const lv = $(`${p}-lives`);
-      if (lv) lv.textContent = (p === 'd')
-        ? '❤️'.repeat(Math.max(0, S.lives))
-        : String(Math.max(0, S.lives));
+      if (lv) lv.textContent = (p === 'd') ? '❤️'.repeat(Math.max(0, S.lives)) : String(Math.max(0, S.lives));
     });
   }
 
-  /* ── Feedback message (green pill / red pill) ──────────── */
+  /* ── Feedback messages ── */
   let fbTid = null;
-
   function feedback(msg, bad) {
     clearTimeout(fbTid);
     const p = S.prefix;
@@ -84,34 +81,33 @@ const Game = (() => {
     }
   }
 
-  /* ── Floating score pop (+10 / −15) in the game area ───── */
-  function scorePop(areaEl, x, y, txt, isPos) {
+  /* ── Floating score pop ── */
+  function scorePop(areaEl, x, y, txt, pos) {
     const d = document.createElement('div');
-    d.className   = 'score-pop ' + (isPos ? 'pos' : 'neg');
+    d.className = 'score-pop ' + (pos ? 'pos' : 'neg');
     d.textContent = txt;
-    d.style.left  = (x - 14) + 'px';
-    d.style.top   = (y - 12) + 'px';
+    d.style.left = (x - 14) + 'px';
+    d.style.top  = (y - 12) + 'px';
     areaEl.appendChild(d);
     setTimeout(() => d.remove(), 720);
   }
 
-  /* ── Border flash on the game area ────────────────────── */
+  /* ── Border flash ── */
   function flash(good) {
     const a = ga(S.prefix);
     if (!a) return;
     const cls = good ? 'flash-good' : 'flash-bad';
-    a.classList.remove('flash-good', 'flash-bad');
-    void a.offsetWidth; // force reflow so animation restarts
+    a.classList.remove('flash-good','flash-bad');
+    void a.offsetWidth;
     a.classList.add(cls);
     setTimeout(() => a.classList.remove(cls), 380);
   }
 
-  /* ── Spawn a single drop ───────────────────────────────── */
+  /* ── Spawn one drop ── */
   function spawnDrop() {
     if (!S.running) return;
-    const a = ga(S.prefix);
+    const a     = ga(S.prefix);
     if (!a) return;
-
     const W     = a.clientWidth;
     const H     = a.clientHeight;
     const water = Math.random() < WATER_CHANCE;
@@ -124,7 +120,7 @@ const Game = (() => {
     el.style.left  = x + 'px';
     el.style.top   = (-DROP_PX) + 'px';
 
-    // 'let' so the closure captures dropObj after assignment below
+    // Use let so the closure captures the correct dropObj reference
     let dropObj;
     el.addEventListener('pointerdown', e => {
       e.stopPropagation();
@@ -134,7 +130,7 @@ const Game = (() => {
     a.appendChild(el);
 
     dropObj = {
-      el,
+      el, x,
       startTime: performance.now(),
       duration:  dur,
       areaH:     H,
@@ -145,7 +141,7 @@ const Game = (() => {
     S.drops.push(dropObj);
   }
 
-  /* ── Handle clicking / tapping a drop ─────────────────── */
+  /* ── Handle drop click/tap ── */
   function onDropClick(obj, el, areaEl) {
     if (!obj || obj.done || !S.running) return;
     obj.done = true;
@@ -171,12 +167,11 @@ const Game = (() => {
       scorePop(areaEl, px, py, '−15', false);
       flash(false);
     }
-
     syncUI();
     if (S.lives <= 0) endGame();
   }
 
-  /* ── rAF loop: move drops down, detect misses ──────────── */
+  /* ── rAF loop: move drops, detect misses ── */
   function tick(now) {
     if (!S.running) return;
 
@@ -189,7 +184,6 @@ const Game = (() => {
       const newTop   = -DROP_PX + (d.areaH + DROP_PX * 2) * progress;
 
       if (newTop > d.areaH) {
-        // Drop exited the bottom — counts as a miss for water drops
         d.done = true;
         d.el.remove();
         if (d.isWater) {
@@ -210,12 +204,12 @@ const Game = (() => {
     S.rafId = requestAnimationFrame(tick);
   }
 
-  /* ── Speed ramp ────────────────────────────────────────── */
+  /* ── Speed ramp ── */
   function updateSpeed() {
     S.speed = Math.min(MAX_SPEED, 1.0 + Math.floor(S.collected / SPEED_STEP) * SPEED_INC);
   }
 
-  /* ── Spawn scheduler (self-rescheduling setTimeout) ────── */
+  /* ── Spawn scheduler ── */
   function scheduleSpawn() {
     if (!S.running) return;
     const delay = BASE_SPAWN_MS / S.speed * (0.75 + Math.random() * 0.5);
@@ -226,16 +220,16 @@ const Game = (() => {
     }, delay);
   }
 
-  /* ── Remove all drops and score-pops from both areas ───── */
+  /* ── Wipe all drops from DOM ── */
   function clearDrops() {
-    ['d', 'm'].forEach(p => {
+    ['d','m'].forEach(p => {
       const a = ga(p);
-      if (a) a.querySelectorAll('.drop, .score-pop').forEach(n => n.remove());
+      if (a) a.querySelectorAll('.drop,.score-pop').forEach(n => n.remove());
     });
     S.drops = [];
   }
 
-  /* ── Inject HTML into an overlay element ───────────────── */
+  /* ── Build overlay HTML ── */
   function showOverlay(p, title, sub, btnLabel, action) {
     const ov = $(`${p}-overlay`);
     if (!ov) return;
@@ -249,9 +243,9 @@ const Game = (() => {
     ov.classList.add('active');
   }
 
-  /* ── End game ───────────────────────────────────────────── */
+  /* ── End game (called once via ended guard) ── */
   function endGame() {
-    if (S.ended) return;    // guard: only run once
+    if (S.ended) return;
     S.ended   = true;
     S.running = false;
     clearTimeout(S.spawnTid);
@@ -259,7 +253,7 @@ const Game = (() => {
     clearTimeout(fbTid);
     clearDrops();
 
-    // Compare final score to high score ONLY at the end
+    // Update high score at end, fire confetti only if beaten
     const beatHigh = S.score > S.hs;
     if (beatHigh) {
       S.hs = S.score;
@@ -267,30 +261,18 @@ const Game = (() => {
     }
     syncUI();
 
-    // Confetti only fires here, and only when high score is beaten
     if (beatHigh) launchConfetti();
 
     const sub = `Final Score: <strong>${S.score.toLocaleString()}</strong><br>
-                 Collected: ${S.collected}&nbsp;&nbsp;|&nbsp;&nbsp;Missed: ${S.missed}`;
-
-    ['d', 'm'].forEach(p =>
-      showOverlay(
-        p,
-        beatHigh ? '🏆 New High Score!' : '💀 Game Over!',
-        sub,
-        'Play Again',
-        `Game.start('${p}')`
-      )
-    );
+                 Collected: ${S.collected} &nbsp;|&nbsp; Missed: ${S.missed}`;
+    ['d','m'].forEach(p => showOverlay(p, beatHigh ? '🏆 New High Score!' : '💀 Game Over!', sub, 'Play Again', `Game.start('${p}')`));
   }
 
-  /* ================================================================
+  /* ─────────────────────────────────────
      PUBLIC API
-  ================================================================ */
-
-  /** Start (or restart) the game on the given layout prefix */
+  ───────────────────────────────────── */
   function start(prefix) {
-    // Tear down any currently running game
+    // Tear down any running game first
     if (S.running) {
       clearTimeout(S.spawnTid);
       cancelAnimationFrame(S.rafId);
@@ -300,29 +282,23 @@ const Game = (() => {
 
     S = {
       ...freshState(),
-      hs:      S.hs,     // carry high score across rounds
-      prefix:  prefix,
+      hs:     S.hs,   // keep high score across rounds
+      prefix: prefix,
       running: true,
     };
 
-    // Hide overlays on both layouts
-    ['d', 'm'].forEach(p => {
-      const ov = $(`${p}-overlay`);
-      if (ov) ov.classList.remove('active');
-    });
+    // Hide overlays
+    ['d','m'].forEach(p => { const ov = $(`${p}-overlay`); if (ov) ov.classList.remove('active'); });
 
-    // Clear any lingering feedback
-    const df = $('d-feedback');
-    if (df) df.className = 'feedback-pill';
-    const mf = $('m-feedback');
-    if (mf) mf.className = 'm-feedback hidden';
+    // Clear feedback
+    $('d-feedback') && ($('d-feedback').className = 'feedback-pill');
+    $('m-feedback') && ($('m-feedback').className = 'm-feedback hidden');
 
     syncUI();
     scheduleSpawn();
     S.rafId = requestAnimationFrame(tick);
   }
 
-  /** Reset the game and return to the start overlay */
   function reset(prefix) {
     clearTimeout(S.spawnTid);
     cancelAnimationFrame(S.rafId);
@@ -331,46 +307,36 @@ const Game = (() => {
 
     S = { ...freshState(), hs: S.hs, prefix };
 
-    const df = $('d-feedback');
-    if (df) df.className = 'feedback-pill';
-    const mf = $('m-feedback');
-    if (mf) mf.className = 'm-feedback hidden';
+    $('d-feedback') && ($('d-feedback').className = 'feedback-pill');
+    $('m-feedback') && ($('m-feedback').className = 'm-feedback hidden');
 
     syncUI();
-
-    ['d', 'm'].forEach(p =>
-      showOverlay(
-        p,
-        'Water Drop Collector',
-        'Click water drops to score.<br>Miss one or click a pollutant → lose a life.<br>Lose all 3 lives → Game Over.',
-        'Start Game',
-        `Game.start('${p}')`
-      )
-    );
+    ['d','m'].forEach(p => showOverlay(
+      p,
+      'Water Drop Collector',
+      'Click water drops to score.<br>Miss one or click a pollutant → lose a life.<br>Lose all 3 lives → Game Over.',
+      'Start Game',
+      `Game.start('${p}')`
+    ));
   }
 
   return { start, reset };
-
 })();
 
 
 /* ================================================================
    CONFETTI ENGINE
-   Fires once at game end if the player beat their high score.
-   Uses charity: water brand colours.
+   Fires on new high score. Uses charity: water brand colours.
 ================================================================ */
 (function () {
   const canvas = document.getElementById('confettiCanvas');
   const ctx    = canvas.getContext('2d');
-  const COLORS = ['#FFC907', '#2E9DF7', '#8BC34A', '#4FC3F7', '#E91C23', '#FFFFFF'];
+  const COLORS = ['#FFC907','#2E9DF7','#8BC34A','#4FC3F7','#E91C23','#FFFFFF'];
 
   let particles = [];
   let raf       = null;
 
-  function resize() {
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
+  function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
   window.addEventListener('resize', resize);
   resize();
 
@@ -383,42 +349,23 @@ const Game = (() => {
     this.vy    = 2.5 + Math.random() * 3.5;
     this.spin  = (Math.random() - 0.5) * 0.28;
     this.angle = Math.random() * Math.PI * 2;
-    this.rect  = Math.random() < 0.5;  // true = rectangle, false = circle
+    this.rect  = Math.random() < 0.5;
   }
 
   function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     particles.forEach(p => {
-      p.x     += p.vx;
-      p.y     += p.vy;
-      p.vy    += 0.07;   // gravity
-      p.angle += p.spin;
-
+      p.x += p.vx; p.y += p.vy; p.vy += 0.07; p.angle += p.spin;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.angle);
       ctx.fillStyle = p.color;
-
-      if (p.rect) {
-        ctx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r);
-      } else {
-        ctx.beginPath();
-        ctx.arc(0, 0, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
+      if (p.rect) { ctx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r); }
+      else { ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill(); }
       ctx.restore();
     });
-
     particles = particles.filter(p => p.y < canvas.height + 24);
-
-    if (particles.length > 0) {
-      raf = requestAnimationFrame(loop);
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      raf = null;
-    }
+    raf = particles.length ? requestAnimationFrame(loop) : (ctx.clearRect(0,0,canvas.width,canvas.height), null);
   }
 
   window.launchConfetti = function () {
